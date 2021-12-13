@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
   cerr << PACKAGE_NAME " " GITREV << endl;
 
   map<string,string> options;
-  regex optregex("--(help|log-to|verbose|target|sqlite|monetdb|version|dump-all-graphs|dump-all-queries|seed|dry-run|max-queries|rng-state|exclude-catalog)(?:=((?:.|\n)*))?");
+  regex optregex("--(help|log-to|verbose|target|sqlite|monetdb|version|dump-all-graphs|dump-all-queries|seed|dry-run|max-queries|rng-state|exclude-catalog|types-to-include|tables-to-include|routines-to-include|aggregates-to-include)(?:=((?:.|\n)*))?");
   
   for(char **opt = argv+1 ;opt < argv+argc; opt++) {
     smatch match;
@@ -119,8 +119,77 @@ int main(int argc, char *argv[])
 	return 1;
 #endif
       }
-      else
-	schema = make_shared<schema_pqxx>(options["target"], options.count("exclude-catalog"));
+      else {
+          std::set<std::string> typesToInclude;
+          if (options.count("types-to-include")) {
+              cerr << "File containing types to include " << options["types-to-include"] << endl;
+              std::ifstream includedTypesFile;
+              includedTypesFile.open(options["types-to-include"], std::ifstream::in);
+
+              if(includedTypesFile.is_open())
+              {
+                  std::string includedType;
+                  while(std::getline(includedTypesFile, includedType))
+                  {
+                      cerr<<"Include Type: "<<includedType<<endl;
+                      typesToInclude.insert(includedType);
+                  }
+              }
+          }
+
+          std::set<std::string> tablesToInclude;
+          if (options.count("tables-to-include")) {
+              cerr << "File containing tables to include " << options["tables-to-include"] << endl;
+              std::ifstream includedTablesFile;
+              includedTablesFile.open(options["tables-to-include"], std::ifstream::in);
+
+              if(includedTablesFile.is_open())
+              {
+                  std::string includedTable;
+                  while(std::getline(includedTablesFile, includedTable))
+                  {
+                      cerr<<"Include Table: "<<includedTable<<endl;
+                      tablesToInclude.insert(includedTable);
+                  }
+              }
+          }
+
+          std::set<std::string> routinesToInclude;
+          if (options.count("routines-to-include")) {
+              cerr << "File containing routines to include " << options["routines-to-include"] << endl;
+              std::ifstream includedRoutinesFile;
+              includedRoutinesFile.open(options["routines-to-include"], std::ifstream::in);
+
+              if(includedRoutinesFile.is_open())
+              {
+                  std::string includedRoutine;
+                  while(std::getline(includedRoutinesFile, includedRoutine))
+                  {
+                      cerr<<"Include Routine: "<<includedRoutine<<endl;
+                      routinesToInclude.insert(includedRoutine);
+                  }
+              }
+          }
+          
+          std::set<std::string> aggregatesToInclude;
+          if (options.count("aggregates-to-include")) {
+              cerr << "File containing aggregates to include " << options["aggregates-to-include"] << endl;
+              std::ifstream includedAggregatesFile;
+              includedAggregatesFile.open(options["aggregates-to-include"], std::ifstream::in);
+
+              if(includedAggregatesFile.is_open())
+              {
+                  std::string includedAggregate;
+                  while(std::getline(includedAggregatesFile, includedAggregate))
+                  {
+                      cerr<<"Include Aggregate: "<<includedAggregate<<endl;
+                      aggregatesToInclude.insert(includedAggregate);
+                  }
+              }
+          }
+		  
+		  schema = make_shared<schema_pqxx>(options["target"], options.count("exclude-catalog"), typesToInclude, tablesToInclude, routinesToInclude, aggregatesToInclude);
+      }
 
       scope scope;
       long queries_generated = 0;

@@ -7,6 +7,7 @@
 #include "dut.hh"
 #include "relmodel.hh"
 #include "schema.hh"
+#include <set>
 
 #include <pqxx/pqxx>
 
@@ -46,7 +47,7 @@ struct schema_pqxx : public schema {
   virtual std::string quote_name(const std::string &id) {
     return c.quote_name(id);
   }
-  schema_pqxx(std::string &conninfo, bool no_catalog);
+  schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::string> typesToInclude, std::set<std::string> tablesToInclude, std::set<std::string> routinesToInclude, std::set<std::string> aggregatesToInclude);
 };
 
 struct dut_pqxx : dut_base {
