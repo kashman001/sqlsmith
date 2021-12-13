@@ -70,19 +70,23 @@ Example invocations:
 
 The following options are currently supported:
 
-| =--target=connstr=   | target postgres database (default: libpq defaults)       |
-| =--sqlite=URI=       | target SQLite3 database                                  |
-| =--monetdb=URI=      | target MonetDB database                                  |
-| =--log-to=connstr=   | postgres db for logging errors into (default: don't log) |
-| =--verbose=          | emit progress output                                     |
-| =--version=          | show version information                                 |
-| =--seed=int=         | seed RNG with specified integer instead of PID           |
-| =--dry-run=          | print queries instead of executing them                  |
-| =--max-queries=long= | terminate after generating this many queries             |
-| =--exclude-catalog=  | don't generate queries using catalog relations           |
-| =--dump-all-queries= | dump queries as they are generated                       |
-| =--dump-all-graphs=  | dump generated ASTs for debugging                        |
-| =--rng-state=string= | deserialize dumped rng state                             |
+| =--target=connstr=       | target postgres database (default: libpq defaults)           |
+| =--sqlite=URI=           | target SQLite3 database                                      |
+| =--monetdb=URI=          | target MonetDB database                                      |
+| =--log-to=connstr=       | postgres db for logging errors into (default: don't log)     |
+| =--verbose=              | emit progress output                                         |
+| =--version=              | show version information                                     |
+| =--seed=int=             | seed RNG with specified integer instead of PID               |
+| =--dry-run=              | print queries instead of executing them                      |
+| =--max-queries=long=     | terminate after generating this many queries                 |
+| =--exclude-catalog=      | don't generate queries using catalog relations               |
+| =--types-to-include=     | specify configuration file that white-lists types            |
+| =--tables-to-include=    | specify names of tables that should be in the generated SQL  |
+| =--routines-to-include=  | specify names of routines that should be in the generated SQL|
+| =--aggregates-to_include=| specify the aggregates that should be in the generated SQL   |
+| =--dump-all-queries=     | dump queries as they are generated                           |
+| =--dump-all-graphs=      | dump generated ASTs for debugging                            |
+| =--rng-state=string=     | deserialize dumped rng state                                 |
 
 Sample output:
 
