@@ -210,7 +210,7 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
     bool registerThisTable = true;
     for (auto row : r) {
         cerr<< "Colname: "<< row[0].as<string>() << " Type OID: " << row[1].as<OID>() << endl;
-        if(oid2type[row[1].as<OID>()]!= nullptr){
+        if(oid2type[row[1].as<OID>()]== nullptr){
             cerr<<"column's type "<<row[1].as<OID>()<<" not found in included types"<<endl;
             registerThisTable = false;
             break;
