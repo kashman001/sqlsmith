@@ -65,13 +65,15 @@ void schema::generate_indexes() {
     cerr << "Done type: " << type->name << endl;
   }
 
-  cerr << "Iterating over base tables..." << endl;
+  cerr << "Iterating over tables..." << endl;
   for (auto &t: tables) {
-    if (t.is_base_table)
-      base_tables.push_back(&t);
+    if (t.is_base_table) {
+        cerr << "   Table: " << t.name << " added to base tables" << endl;
+        base_tables.push_back(&t);
+    }
   }
   
-  cerr << "done." << endl;
+  cerr << "Done generating indexes" << endl;
 
   assert(booltype);
   assert(inttype);
