@@ -13,6 +13,7 @@ using boost::regex_match;
 
 using namespace std;
 
+extern std::ostream * pg_mtd_info_stream;
 static regex e_timeout("ERROR:  canceling statement due to statement timeout(\n|.)*");
 static regex e_syntax("ERROR:  syntax error at or near(\n|.)*");
 
@@ -110,8 +111,11 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
   string procedure_is_aggregate = version_num < 110000 ? "proisagg" : "prokind = 'a'";
   string procedure_is_window = version_num < 110000 ? "proiswindow" : "prokind = 'w'";
 
-  cerr << "Loading types..." << endl;
+  cerr << "Loading types...";
 
+  if (pg_mtd_info_stream == &cerr)
+     (*pg_mtd_info_stream) << endl;
+	 
   r = w.exec("select quote_ident(typname), oid, typdelim, typrelid, typelem, typarray, typtype "
 	     "from pg_type ");
   
@@ -134,9 +138,9 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
       {
           auto search = typesToInclude.find(name);
           if (search != typesToInclude.end()) {
-             cerr << "Type: " << name << ", included" << endl;
+             (*pg_mtd_info_stream) << "Type: " << name << ", included" << endl;
           } else {
-             cerr << "Type: " << name << ", excluded" << endl;
+             (*pg_mtd_info_stream) << "Type: " << name << ", excluded" << endl;
              continue;
          }
       }
@@ -156,7 +160,11 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
   cerr << "done." << endl;
 
   vector<table> tables_temp;
-  cerr << "Loading tables..." << endl;
+  cerr << "Loading tables...";
+  
+  if (pg_mtd_info_stream == &cerr)
+     (*pg_mtd_info_stream) << endl;
+	 
   r = w.exec("select table_name, "
 		    "table_schema, "
 	            "is_insertable_into, "
@@ -176,14 +184,14 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
         string tableName = row[0].as<string>();
         auto search = tablesToInclude.find(tableName);
         if (search != tablesToInclude.end()) {
-           cerr << "Table: " << tableName << ", included" << endl;
+           (*pg_mtd_info_stream) << "Table: " << tableName << ", included" << endl;
         } else {
-           cerr << "Table: " << tableName << ", excluded" << endl;
+           (*pg_mtd_info_stream) << "Table: " << tableName << ", excluded" << endl;
            continue;
         }
     }
 
-    cerr<<schema<<"."<<row[0].as<string>()<<endl;
+    (*pg_mtd_info_stream)<<schema<<"."<<row[0].as<string>()<<endl;
     tables_temp.push_back(table(row[0].as<string>(),
 			   schema,
 			   ((insertable == "YES") ? true : false),
@@ -192,7 +200,10 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
 	     
   cerr << "done." << endl;
 
-  cerr << "Loading columns and constraints..." << endl;
+  cerr << "Loading columns and constraints...";
+  
+  if (pg_mtd_info_stream == &cerr)
+     (*pg_mtd_info_stream) << endl;
 
   for (auto t = tables_temp.begin(); t != tables_temp.end(); ++t) {
     string q("select attname, "
@@ -206,12 +217,12 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
     q += " and nspname = " + w.quote(t->schema);
 
     r = w.exec(q);
-    cerr << "Table: " << t->schema <<"."<< t->name << endl;
+    (*pg_mtd_info_stream) << "Table: " << t->schema <<"."<< t->name << endl;
     bool registerThisTable = true;
     for (auto row : r) {
-        cerr<< "Colname: "<< row[0].as<string>() << " Type OID: " << row[1].as<OID>() << endl;
+        (*pg_mtd_info_stream) << "Colname: "<< row[0].as<string>() << " Type OID: " << row[1].as<OID>() << endl;
         if(oid2type[row[1].as<OID>()]== nullptr){
-            cerr<<"column's type "<<row[1].as<OID>()<<" not found in included types"<<endl;
+            (*pg_mtd_info_stream)<<"column's type "<<row[1].as<OID>()<<" not found in included types"<<endl;
             registerThisTable = false;
             break;
         }
@@ -222,10 +233,10 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
 
     if(registerThisTable) {
         tables.push_back(*t);
-        cerr <<"   " << t->schema <<"."<< t->name <<" registered"<< endl;
+        (*pg_mtd_info_stream) <<"   " << t->schema <<"."<< t->name <<" registered"<< endl;
     }
     else{
-        cerr <<"   " << t->schema <<"."<< t->name <<" skipped"<< endl;
+        (*pg_mtd_info_stream) <<"   " << t->schema <<"."<< t->name <<" skipped"<< endl;
     }
 
     q = "select conname from pg_class t "
@@ -241,7 +252,10 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
   }
   cerr << "done." << endl;
 
-  cerr << "Loading operators..." << endl;
+  cerr << "Loading operators...";
+  
+  if (pg_mtd_info_stream == &cerr)
+     (*pg_mtd_info_stream) << endl;
 
   r = w.exec("select oprname, oprleft,"
 		    "oprright, oprresult "
@@ -256,10 +270,10 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
                oid2type[row[2].as<OID>()],
                oid2type[row[3].as<OID>()]);
           register_operator(o);
-          cerr<<row[0]<<", "<<row[1]<<", "<<row[2]<<", "<<row[3]<<" registered"<<endl;
+          (*pg_mtd_info_stream)<<row[0]<<", "<<row[1]<<", "<<row[2]<<", "<<row[3]<<" registered"<<endl;
       }
       else{
-          cerr<<row[0]<<", "<<row[1]<<", "<<row[2]<<", "<<row[3]<<" skipped"<<endl;
+          (*pg_mtd_info_stream)<<row[0]<<", "<<row[1]<<", "<<row[2]<<", "<<row[3]<<" skipped"<<endl;
       }
   }
 
@@ -267,7 +281,11 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
 
   std::vector<routine> routines_temp;
 
-  cerr << "Loading routines..." << endl;
+  cerr << "Loading routines...";
+  
+  if (pg_mtd_info_stream == &cerr)
+     (*pg_mtd_info_stream) << endl;
+
   r = w.exec("select (select nspname from pg_namespace where oid = pronamespace), oid, prorettype, proname "
 	     "from pg_proc "
 	     "where prorettype::regtype::text not in ('event_trigger', 'trigger', 'opaque', 'internal') "
@@ -286,9 +304,9 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
           string routineName = row[3].as<string>();
           auto search = routinesToInclude.find(routineName);
           if (search != routinesToInclude.end()) {
-              cerr << "Routine: " << routineName << ", included" << endl;
+              (*pg_mtd_info_stream) << "Routine: " << routineName << ", included" << endl;
           } else {
-              cerr << "Routine: " << routineName << ", excluded" << endl;
+              (*pg_mtd_info_stream) << "Routine: " << routineName << ", excluded" << endl;
               continue;
           }
       }
@@ -299,16 +317,19 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
                        oid2type[row[2].as<long>()],
                        row[3].as<string>());
           routines_temp.push_back(proc);
-          cerr<<row[0].as<string>()<<"."<<row[1].as<string>()<<" added to temp"<<endl;
+          (*pg_mtd_info_stream)<<row[0].as<string>()<<"."<<row[1].as<string>()<<" added to temp"<<endl;
       }
       else{
-          cerr<<row[0].as<string>()<<"."<<row[1].as<string>()<<" skipped"<<endl;
+          (*pg_mtd_info_stream)<<row[0].as<string>()<<"."<<row[1].as<string>()<<" skipped"<<endl;
       }
   }
 
   cerr << "done." << endl;
 
-  cerr << "Loading routine parameters..." << endl;
+  cerr << "Loading routine parameters...";
+  
+  if (pg_mtd_info_stream == &cerr)
+     (*pg_mtd_info_stream) << endl;
 
   for (auto &proc : routines_temp) {
     string q("select unnest(proargtypes) "
@@ -317,12 +338,12 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
       
     r = w.exec(q);
     bool registerThisRoutine = true;
-    cerr<<"Routine "<<proc.schema<<"."<<proc.specific_name<<":"<<endl;
+    (*pg_mtd_info_stream)<<"Routine "<<proc.schema<<"."<<proc.specific_name<<":"<<endl;
     for (auto row : r) {
       sqltype *t = oid2type[row[0].as<OID>()];
       if(t == nullptr)
       {
-          cerr<<"parameter with oid "<<row[0].as<OID>()<<" not found in included types"<<endl;
+          (*pg_mtd_info_stream)<<"parameter with oid "<<row[0].as<OID>()<<" not found in included types"<<endl;
           registerThisRoutine = false;
           break;
       }
@@ -331,15 +352,18 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
 
     if(registerThisRoutine){
         register_routine(proc);
-        cerr<<"   "<<proc.schema<<"."<<proc.specific_name<<" registered"<<endl;
+        (*pg_mtd_info_stream)<<"   "<<proc.schema<<"."<<proc.specific_name<<" registered"<<endl;
     }else{
-        cerr<<"   "<<proc.schema<<"."<<proc.specific_name<<" skipped"<<endl;
+        (*pg_mtd_info_stream)<<"   "<<proc.schema<<"."<<proc.specific_name<<" skipped"<<endl;
     }
   }
   cerr << "done." << endl;
 
   std::vector<routine> aggregates_temp;
-  cerr << "Loading aggregates..." << endl;
+  cerr << "Loading aggregates...";
+  
+  if (pg_mtd_info_stream == &cerr)
+     (*pg_mtd_info_stream) << endl;
   r = w.exec("select (select nspname from pg_namespace where oid = pronamespace), oid, prorettype, proname "
 	     "from pg_proc "
 	     "where prorettype::regtype::text not in ('event_trigger', 'trigger', 'opaque', 'internal') "
@@ -356,23 +380,26 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
       //    continue;
 
       if(oid2type[row[2].as<OID>()] != nullptr) {
-          cerr << "input data type: " << row[2].as<OID>() << endl;
-          cerr << "associated type is: "<< oid2type[row[2].as<OID>()]->name << endl;
+          (*pg_mtd_info_stream) << "input data type: " << row[2].as<OID>() << endl;
+          (*pg_mtd_info_stream) << "associated type is: "<< oid2type[row[2].as<OID>()]->name << endl;
           routine proc(row[0].as<string>(),
                        row[1].as<string>(),
                        oid2type[row[2].as<long>()],
                        row[3].as<string>());
           aggregates_temp.push_back(proc);
-          cerr<<row[0].as<string>()<<"."<<row[1].as<string>()<<" added to temp"<<endl;
+          (*pg_mtd_info_stream)<<row[0].as<string>()<<"."<<row[1].as<string>()<<" added to temp"<<endl;
       }
       else{
-          cerr<<row[0].as<string>()<<"."<<row[1].as<string>()<<" skipped"<<endl;
+          (*pg_mtd_info_stream)<<row[0].as<string>()<<"."<<row[1].as<string>()<<" skipped"<<endl;
       }
   }
 
   cerr << "done." << endl;
 
-  cerr << "Loading aggregate parameters..." << endl;
+  cerr << "Loading aggregate parameters...";
+  
+  if (pg_mtd_info_stream == &cerr)
+     (*pg_mtd_info_stream) << endl;
 
   for (auto &proc : aggregates) {
     string q("select unnest(proargtypes) "
@@ -380,13 +407,13 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
     q += " where oid = " + w.quote(proc.specific_name);
 
     bool registerThisAggregate = true;
-    cerr<<"Aggregate "<<proc.schema<<"."<<proc.specific_name<<":"<<endl;
+    (*pg_mtd_info_stream)<<"Aggregate "<<proc.schema<<"."<<proc.specific_name<<":"<<endl;
     r = w.exec(q);
     for (auto row : r) {
       sqltype *t = oid2type[row[0].as<OID>()];
       if(t == nullptr)
       {
-          cerr<<"parameter with oid "<<row[0].as<OID>()<<" not found in included types"<<endl;
+          (*pg_mtd_info_stream)<<"parameter with oid "<<row[0].as<OID>()<<" not found in included types"<<endl;
           registerThisAggregate = false;
           break;
       }
@@ -395,10 +422,10 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
 
     if(registerThisAggregate){
         register_aggregate(proc);
-        cerr<<"   "<<proc.schema<<"."<<proc.specific_name<<" registered"<<endl;
+        (*pg_mtd_info_stream)<<"   "<<proc.schema<<"."<<proc.specific_name<<" registered"<<endl;
     }
     else{
-        cerr<<"   "<<proc.schema<<"."<<proc.specific_name<<" skipped"<<endl;
+        (*pg_mtd_info_stream)<<"   "<<proc.schema<<"."<<proc.specific_name<<" skipped"<<endl;
     }
   }
   cerr << "done." << endl;

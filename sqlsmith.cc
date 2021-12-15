@@ -46,6 +46,22 @@ extern "C" {
 #include <signal.h>
 }
 
+struct NullBuffer : public std::streambuf
+{
+public:
+    int overflow(int c) { return c; }
+};
+
+struct NullStream : public std::ostream {
+public:
+    NullStream() : std::ostream(&m_sb){}
+private:
+    NullBuffer m_sb;
+};
+
+/* stream to output Metadata discovery details for Postgres */
+std::ostream *pg_mtd_info_stream;
+
 /* make the cerr logger globally accessible so we can emit one last
    report on SIGINT */
 cerr_logger *global_cerr_logger;
@@ -61,8 +77,9 @@ int main(int argc, char *argv[])
 {
   cerr << PACKAGE_NAME " " GITREV << endl;
 
+  pg_mtd_info_stream = new NullStream();
   map<string,string> options;
-  regex optregex("--(help|log-to|verbose|target|sqlite|monetdb|version|dump-all-graphs|dump-all-queries|seed|dry-run|max-queries|rng-state|exclude-catalog|types-to-include|tables-to-include|routines-to-include|aggregates-to-include)(?:=((?:.|\n)*))?");
+  regex optregex("--(help|log-to|verbose|target|sqlite|monetdb|version|dump-all-graphs|dump-all-queries|seed|dry-run|max-queries|rng-state|exclude-catalog|pg-mtd-info|types-to-include|tables-to-include|routines-to-include|aggregates-to-include)(?:=((?:.|\n)*))?");
   
   for(char **opt = argv+1 ;opt < argv+argc; opt++) {
     smatch match;
@@ -84,17 +101,22 @@ int main(int argc, char *argv[])
 #ifdef HAVE_MONETDB
       "    --monetdb=connstr    MonetDB database to send queries to" <<endl <<
 #endif
-      "    --log-to=connstr     log errors to postgres database" << endl <<
-      "    --seed=int           seed RNG with specified int instead of PID" << endl <<
-      "    --dump-all-queries   print queries as they are generated" << endl <<
-      "    --dump-all-graphs    dump generated ASTs" << endl <<
-      "    --dry-run            print queries instead of executing them" << endl <<
-      "    --exclude-catalog    don't generate queries using catalog relations" << endl <<
-      "    --max-queries=long   terminate after generating this many queries" << endl <<
-      "    --rng-state=string    deserialize dumped rng state" << endl <<
-      "    --verbose            emit progress output" << endl <<
-      "    --version            print version information and exit" << endl <<
-      "    --help               print available command line options and exit" << endl;
+      "    --log-to=connstr        log errors to postgres database" << endl <<
+      "    --seed=int              seed RNG with specified int instead of PID" << endl <<
+      "    --dump-all-queries      print queries as they are generated" << endl <<
+      "    --dump-all-graphs       dump generated ASTs" << endl <<
+      "    --dry-run               print queries instead of executing them" << endl <<
+      "    --exclude-catalog       don't generate queries using catalog relations" << endl <<
+      "    --pg-mtd-info           print Postgres Metadata Info to cerr" << endl <<
+      "    --types-to-include      specify configuration file that white-lists types" << endl <<
+      "    --tables-to-include     specify names of tables that should be in the generated SQL" << endl <<
+      "    --routines-to-include   specify names of routines that should be in the generated SQL" << endl <<
+      "    -–aggregates-to_include specify the aggregates that should be in the generated SQL" << endl <<
+      "    --max-queries=long      terminate after generating this many queries" << endl <<
+      "    --rng-state=string      deserialize dumped rng state" << endl <<
+      "    --verbose               emit progress output" << endl <<
+      "    --version               print version information and exit" << endl <<
+      "    --help                  print available command line options and exit" << endl;
     return 0;
   } else if (options.count("version")) {
     return 0;
@@ -120,6 +142,11 @@ int main(int argc, char *argv[])
 #endif
       }
       else {
+
+          if(options.count("pg-mtd-info")){
+              pg_mtd_info_stream = &cerr;
+          }
+
           std::set<std::string> typesToInclude;
           if (options.count("types-to-include")) {
               cerr << "File containing types to include " << options["types-to-include"] << endl;
