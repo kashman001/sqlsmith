@@ -11,6 +11,7 @@
 
 #include "prod.hh"
 #include "expr.hh"
+#include <set>
 
 using std::shared_ptr;
 

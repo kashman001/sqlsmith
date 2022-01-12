@@ -82,6 +82,8 @@ struct scope {
   vector<named_relation*> tables;
  /// available to column_ref productions
   vector<named_relation*> refs;
+ /// references created in this scope
+  vector<named_relation*> refsCreatedInThisScope;
   struct schema *schema;
   /// Counters for prefixed stmt-unique identifiers
   shared_ptr<map<string,unsigned int> > stmt_seq;
@@ -101,6 +103,16 @@ struct scope {
 	  result.push_back(make_pair(r,c));
     return result;
   }
+
+  vector<pair<named_relation*, column> > refs_of_type_created_in_current_scope(sqltype *t) {
+    vector<pair<named_relation*, column> > result;
+    for (auto r : refsCreatedInThisScope)
+      for (auto c : r->columns())
+        if (t->consistent(c.type))
+          result.push_back(make_pair(r,c));
+    return result;
+  }
+
   /** Generate unique identifier with prefix. */
   string stmt_uid(const char* prefix) {
     string result(prefix);

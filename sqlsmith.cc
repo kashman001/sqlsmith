@@ -66,6 +66,28 @@ std::ostream *pg_mtd_info_stream;
    report on SIGINT */
 cerr_logger *global_cerr_logger;
 
+//a set containing a whitelist of statement types to include
+//if set is empty then all statement types are included
+//if set has any entries then statement types referred in the
+//file (specified via flag --stmt-types-to-include) are whitelisted
+std::set<std::string> * stmtTypesToInclude;
+
+//a set containing the table_ref types to include
+//if set is empty then all statement types are included
+//if set has any entries then statement types referred in the
+//file (specified via flag --table-ref-types-to-include)
+//are whitelisted
+std::set<std::string> * tableRefTypesToInclude;
+
+//a set containing the value_expr types to include
+//if set is empty then all statement types are included
+//if set has any entries then statement types referred in the
+//file (specified via flag --value-expr-types-to-include)
+//are whitelisted
+std::set<std::string> * valueExprTypesToInclude;
+
+bool avoid_correlated_references = false;
+
 extern "C" void cerr_log_handler(int)
 {
   if (global_cerr_logger)
@@ -79,7 +101,7 @@ int main(int argc, char *argv[])
 
   pg_mtd_info_stream = new NullStream();
   map<string,string> options;
-  regex optregex("--(help|log-to|verbose|target|sqlite|monetdb|version|dump-all-graphs|dump-all-queries|seed|dry-run|max-queries|rng-state|exclude-catalog|pg-mtd-info|types-to-include|tables-to-include|routines-to-include|aggregates-to-include)(?:=((?:.|\n)*))?");
+  regex optregex("--(help|log-to|verbose|target|sqlite|monetdb|version|dump-all-graphs|dump-all-queries|seed|dry-run|max-queries|rng-state|exclude-catalog|pg-mtd-info|avoid-correlated-references|types-to-include|tables-to-include|routines-to-include|aggregates-to-include|operators-to-include|stmt-types-to-include|table-ref-types-to-include|value-expr-types-to-include)(?:=((?:.|\n)*))?");
   
   for(char **opt = argv+1 ;opt < argv+argc; opt++) {
     smatch match;
@@ -111,7 +133,8 @@ int main(int argc, char *argv[])
       "    --types-to-include      specify configuration file that white-lists types" << endl <<
       "    --tables-to-include     specify names of tables that should be in the generated SQL" << endl <<
       "    --routines-to-include   specify names of routines that should be in the generated SQL" << endl <<
-      "    -–aggregates-to_include specify the aggregates that should be in the generated SQL" << endl <<
+      "    -–aggregates-to-include specify the aggregates that should be in the generated SQL" << endl <<
+      "    -–stmt-types-include    specify the statement types that should be generated" << endl <<
       "    --max-queries=long      terminate after generating this many queries" << endl <<
       "    --rng-state=string      deserialize dumped rng state" << endl <<
       "    --verbose               emit progress output" << endl <<
@@ -122,8 +145,62 @@ int main(int argc, char *argv[])
     return 0;
   }
 
+  if(options.count("avoid-correlated-references"))
+      avoid_correlated_references = true;
+
   try
     {
+      stmtTypesToInclude = new std::set<std::string>();
+      if (options.count("stmt-types-to-include")) {
+          cerr << "File containing stmt types to include " << options["stmt-types-to-include"] << endl;
+          std::ifstream includedStmtTypesFile;
+          includedStmtTypesFile.open(options["stmt-types-to-include"], std::ifstream::in);
+
+          if(includedStmtTypesFile.is_open())
+          {
+              std::string includedStmtType;
+              while(std::getline(includedStmtTypesFile, includedStmtType))
+              {
+                  cerr<<"Include Stmt Type: "<<includedStmtType<<endl;
+                  stmtTypesToInclude->insert(includedStmtType);
+              }
+          }
+      }
+
+      tableRefTypesToInclude = new std::set<std::string>();
+      if (options.count("table-ref-types-to-include")) {
+          cerr << "File containing table_ref types to include " << options["table-ref-types-to-include"] << endl;
+          std::ifstream includedTableRefTypesFile;
+          includedTableRefTypesFile.open(options["table-ref-types-to-include"], std::ifstream::in);
+
+          if(includedTableRefTypesFile.is_open())
+          {
+              std::string includedTableRefType;
+              while(std::getline(includedTableRefTypesFile, includedTableRefType))
+              {
+                  cerr<<"Include table_ref Type: "<<includedTableRefType<<endl;
+                  tableRefTypesToInclude->insert(includedTableRefType);
+              }
+          }
+      }
+
+      valueExprTypesToInclude = new std::set<std::string>();
+      if (options.count("value-expr-types-to-include")) {
+          cerr << "File containing value_expr types to include " << options["value-expr-types-to-include"] << endl;
+          std::ifstream includedValueExprTypesFile;
+          includedValueExprTypesFile.open(options["value-expr-types-to-include"], std::ifstream::in);
+
+          if(includedValueExprTypesFile.is_open())
+          {
+              std::string includedValueExprType;
+              while(std::getline(includedValueExprTypesFile, includedValueExprType))
+              {
+                  cerr<<"Include value_expr Type: "<<includedValueExprType<<endl;
+                  valueExprTypesToInclude->insert(includedValueExprType);
+              }
+          }
+      }
+
       shared_ptr<schema> schema;
       if (options.count("sqlite")) {
 #ifdef HAVE_LIBSQLITE3
@@ -214,8 +291,25 @@ int main(int argc, char *argv[])
                   }
               }
           }
-		  
-		  schema = make_shared<schema_pqxx>(options["target"], options.count("exclude-catalog"), typesToInclude, tablesToInclude, routinesToInclude, aggregatesToInclude);
+
+          std::set<std::string> operatorsToInclude;
+          if (options.count("operators-to-include")) {
+              cerr << "File containing operators to include " << options["operators-to-include"] << endl;
+              std::ifstream includedOperatorsFile;
+              includedOperatorsFile.open(options["operators-to-include"], std::ifstream::in);
+
+              if(includedOperatorsFile.is_open())
+              {
+                  std::string includedOperator;
+                  while(std::getline(includedOperatorsFile, includedOperator))
+                  {
+                      cerr<<"Include Operator: "<<includedOperator<<endl;
+                      operatorsToInclude.insert(includedOperator);
+                  }
+              }
+          }
+
+		  schema = make_shared<schema_pqxx>(options["target"], options.count("exclude-catalog"), typesToInclude, tablesToInclude, routinesToInclude, aggregatesToInclude, operatorsToInclude);
       }
 
       scope scope;

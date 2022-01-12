@@ -96,7 +96,7 @@ void dut_pqxx::test(const std::string &stmt)
 }
 
 
-schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::string> typesToInclude, std::set<std::string> tablesToInclude, std::set<std::string> routinesToInclude, std::set<std::string> aggregatesToInclude) : c(conninfo)
+schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::string>& typesToInclude, std::set<std::string>& tablesToInclude, std::set<std::string>& routinesToInclude, std::set<std::string>& aggregatesToInclude, std::set<std::string>& operatorsToInclude) : c(conninfo)
 {
   c.set_variable("application_name", "'" PACKAGE "::schema'");
 
@@ -264,7 +264,9 @@ schema_pqxx::schema_pqxx(std::string &conninfo, bool no_catalog, std::set<std::s
   for (auto row : r) {
       if((oid2type[row[1].as<OID>()] != nullptr) &&
          (oid2type[row[2].as<OID>()] != nullptr) &&
-         (oid2type[row[3].as<OID>()] != nullptr)) {
+         (oid2type[row[3].as<OID>()] != nullptr) &&
+         ((operatorsToInclude.find(row[0].as<string>()) != operatorsToInclude.end())||
+          operatorsToInclude.empty())) {
           op o(row[0].as<string>(),
                oid2type[row[1].as<OID>()],
                oid2type[row[2].as<OID>()],

@@ -11,19 +11,26 @@
 #include "impedance.hh"
 
 using namespace std;
+extern std::set<std::string>* stmtTypesToInclude;
+extern std::set<std::string>* tableRefTypesToInclude;
 
 shared_ptr<table_ref> table_ref::factory(prod *p) {
   try {
     if (p->level < 3 + d6()) {
-      if (d6() > 3 && p->level < d6())
+      if ((d6() > 3 && p->level < d6()) &&
+          (tableRefTypesToInclude->empty() || tableRefTypesToInclude->count("table_subquery")))
 	return make_shared<table_subquery>(p);
-      if (d6() > 3)
+      if ((d6() > 3)  &&
+          (tableRefTypesToInclude->empty() || tableRefTypesToInclude->count("joined_table")))
 	return make_shared<joined_table>(p);
     }
-    if (d6() > 3)
+    if ((d6() > 3) &&
+        (tableRefTypesToInclude->empty() || tableRefTypesToInclude->count("table_or_query_name")))
       return make_shared<table_or_query_name>(p);
-    else
+    else if(tableRefTypesToInclude->empty() || tableRefTypesToInclude->count("table_sample"))
       return make_shared<table_sample>(p);
+    else
+      return make_shared<table_or_query_name>(p);
   } catch (runtime_error &e) {
     p->retry();
   }
@@ -32,7 +39,11 @@ shared_ptr<table_ref> table_ref::factory(prod *p) {
 
 table_or_query_name::table_or_query_name(prod *p) : table_ref(p) {
   t = random_pick(scope->tables);
-  refs.push_back(make_shared<aliased_relation>(scope->stmt_uid("ref"), t));
+  string alias = scope->stmt_uid("ref");
+  relation *relation = t;
+  auto aliased_rel = make_shared<aliased_relation>(alias, relation);
+  refs.push_back(aliased_rel);
+  scope->refsCreatedInThisScope.push_back(&*aliased_rel);
 }
 
 void table_or_query_name::out(std::ostream &out) {
@@ -50,7 +61,11 @@ target_table::target_table(prod *p, table *victim) : table_ref(p)
     retry();
   }
   victim_ = victim;
-  refs.push_back(make_shared<aliased_relation>(scope->stmt_uid("target"), victim));
+  string alias = scope->stmt_uid("target");
+  relation *relation = victim;
+  auto aliased_rel = make_shared<aliased_relation>(alias, relation);
+  refs.push_back(aliased_rel);
+  scope->refsCreatedInThisScope.push_back(&*aliased_rel);
 }
 
 void target_table::out(std::ostream &out) {
@@ -66,7 +81,11 @@ table_sample::table_sample(prod *p) : table_ref(p) {
     retry();
   } while (!t || !t->is_base_table);
   
-  refs.push_back(make_shared<aliased_relation>(scope->stmt_uid("sample"), t));
+  string alias = scope->stmt_uid("sample");
+  relation *relation = t;
+  auto aliased_rel = make_shared<aliased_relation>(alias, relation);
+  refs.push_back(aliased_rel);
+  scope->refsCreatedInThisScope.push_back(&*aliased_rel);
   percent = 0.1 * d100();
   method = (d6() > 2) ? "system" : "bernoulli";
 }
@@ -82,8 +101,10 @@ table_subquery::table_subquery(prod *p, bool lateral)
   : table_ref(p), is_lateral(lateral) {
   query = make_shared<query_spec>(this, scope, lateral);
   string alias = scope->stmt_uid("subq");
-  relation *aliased_rel = &query->select_list->derived_table;
-  refs.push_back(make_shared<aliased_relation>(alias, aliased_rel));
+  relation *relation = &query->select_list->derived_table;
+  auto aliased_rel = make_shared<aliased_relation>(alias, relation);
+  refs.push_back(aliased_rel);
+  scope->refsCreatedInThisScope.push_back(&*aliased_rel);
 }
 
 table_subquery::~table_subquery() { }
@@ -139,11 +160,20 @@ expr_join_cond::expr_join_cond(prod *p, table_ref &lhs, table_ref &rhs)
      : join_cond(p, lhs, rhs), joinscope(p->scope)
 {
      scope = &joinscope;
-     for (auto ref: lhs.refs)
-	  joinscope.refs.push_back(&*ref);
-     for (auto ref: rhs.refs)
-	  joinscope.refs.push_back(&*ref);
-     search = bool_expr::factory(this);
+     for (auto ref: lhs.refs) {
+         joinscope.refs.push_back(&*ref);
+     }
+     for(auto ref: lhs.scope->refsCreatedInThisScope){
+         joinscope.refsCreatedInThisScope.push_back(&*ref);
+     }
+     for (auto ref: rhs.refs) {
+         joinscope.refs.push_back(&*ref);
+     }
+     for(auto ref: rhs.scope->refsCreatedInThisScope){
+        joinscope.refsCreatedInThisScope.push_back(&*ref);
+     }
+
+    search = bool_expr::factory(this);
 }
 
 void expr_join_cond::out(std::ostream &out) {
@@ -198,18 +228,23 @@ void from_clause::out(std::ostream &out) {
 }
 
 from_clause::from_clause(prod *p) : prod(p) {
-  reflist.push_back(table_ref::factory(this));
-  for (auto r : reflist.back()->refs)
-    scope->refs.push_back(&*r);
+    reflist.push_back(table_ref::factory(this));
+    for (auto r: reflist.back()->refs) {
+        scope->refs.push_back(&*r);
+        scope->refsCreatedInThisScope.push_back(&*r);
+    }
 
-  while (d6() > 5) {
-    // add a lateral subquery
-    if (!impedance::matched(typeid(lateral_subquery)))
-      break;
-    reflist.push_back(make_shared<lateral_subquery>(this));
-    for (auto r : reflist.back()->refs)
-      scope->refs.push_back(&*r);
-  }
+    if (tableRefTypesToInclude->empty() || tableRefTypesToInclude->count("lateral_subquery"))
+    {
+        while (d6() > 5) {
+            // add a lateral subquery
+            if (!impedance::matched(typeid(lateral_subquery)))
+                break;
+            reflist.push_back(make_shared<lateral_subquery>(this));
+            for (auto r: reflist.back()->refs)
+                scope->refs.push_back(&*r);
+        }
+    }
 }
 
 select_list::select_list(prod *p) : prod(p)
@@ -467,19 +502,19 @@ shared_ptr<prod> statement_factory(struct scope *s)
 {
   try {
     s->new_stmt();
-    if (d42() == 1)
+    if ((d42() == 1) && (stmtTypesToInclude->empty() || stmtTypesToInclude->count("merge_stmt")))
       return make_shared<merge_stmt>((struct prod *)0, s);
-    if (d42() == 1)
+    if ((d42() == 1) && (stmtTypesToInclude->empty() || stmtTypesToInclude->count("insert_stmt")))
       return make_shared<insert_stmt>((struct prod *)0, s);
-    else if (d42() == 1)
+    else if ((d42() == 1) && (stmtTypesToInclude->empty() || stmtTypesToInclude->count("delete_returning")))
       return make_shared<delete_returning>((struct prod *)0, s);
-    else if (d42() == 1) {
+    else if ((d42() == 1) && (stmtTypesToInclude->empty() || stmtTypesToInclude->count("upsert_stmt"))){
       return make_shared<upsert_stmt>((struct prod *)0, s);
-    } else if (d42() == 1)
+    } else if ((d42() == 1) && (stmtTypesToInclude->empty() || stmtTypesToInclude->count("update_returning")))
       return make_shared<update_returning>((struct prod *)0, s);
-    else if (d6() > 4)
+    else if ((d6() > 4) && (stmtTypesToInclude->empty() || stmtTypesToInclude->count("select_for_update")))
       return make_shared<select_for_update>((struct prod *)0, s);
-    else if (d6() > 5)
+    else if ((d6() > 5) && (stmtTypesToInclude->empty() || stmtTypesToInclude->count("common_table_expression")))
       return make_shared<common_table_expression>((struct prod *)0, s);
     return make_shared<query_spec>((struct prod *)0, s);
   } catch (runtime_error &e) {
@@ -507,7 +542,7 @@ common_table_expression::common_table_expression(prod *parent, struct scope *s)
     auto aliased_rel = make_shared<aliased_relation>(alias, relation);
     refs.push_back(aliased_rel);
     scope->tables.push_back(&*aliased_rel);
-
+    scope->refsCreatedInThisScope.push_back(&*aliased_rel);
   } while (d6() > 2);
 
  retry:

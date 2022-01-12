@@ -13,23 +13,32 @@
 
 using namespace std;
 using impedance::matched;
+extern std::set<std::string>* valueExprTypesToInclude;
+extern bool avoid_correlated_references;
 
 shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint)
 {
   try {
-    if (1 == d20() && p->level < d6() && window_function::allowed(p))
+    if ((1 == d20() && p->level < d6() && window_function::allowed(p)) &&
+        (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("window_function")))
       return make_shared<window_function>(p, type_constraint);
-    else if (1 == d42() && p->level < d6())
+    else if ((1 == d42() && p->level < d6()) &&
+             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("coalesce")))
       return make_shared<coalesce>(p, type_constraint);
-    else if (1 == d42() && p->level < d6())
+    else if ((1 == d42() && p->level < d6()) &&
+             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("nullif")))
       return make_shared<nullif>(p, type_constraint);
-    else if (p->level < d6() && d6() == 1)
+    else if ((p->level < d6() && d6() == 1) &&
+             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("funcall")))
       return make_shared<funcall>(p, type_constraint);
-    else if (d12()==1)
+    else if ((d12()==1) &&
+             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("atomic_subselect")))
       return make_shared<atomic_subselect>(p, type_constraint);
-    else if (p->level< d6() && d9()==1)
+    else if ((p->level< d6() && d9()==1) &&
+             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("case_expr")))
       return make_shared<case_expr>(p, type_constraint);
-    else if (p->scope->refs.size() && d20() > 1)
+    else if ((p->scope->refs.size() && d20() > 1) &&
+             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("column_reference")))
       return make_shared<column_reference>(p, type_constraint);
     else
       return make_shared<const_expr>(p, type_constraint);
@@ -77,15 +86,16 @@ void case_expr::accept(prod_visitor *v)
 column_reference::column_reference(prod *p, sqltype *type_constraint) : value_expr(p)
 {
   if (type_constraint) {
-    auto pairs = scope->refs_of_type(type_constraint);
+    auto pairs = avoid_correlated_references?
+      scope->refs_of_type_created_in_current_scope(type_constraint):scope->refs_of_type(type_constraint);
     auto picked = random_pick(pairs);
     reference += picked.first->ident()
       + "." + picked.second.name;
     type = picked.second.type;
     assert(type_constraint->consistent(type));
   } else {
-    named_relation *r = random_pick(scope->refs);
-
+    named_relation *r = avoid_correlated_references?
+      random_pick(scope->refsCreatedInThisScope):random_pick(scope->refs);
     reference += r->ident() + ".";
     column &c = random_pick(r->columns());
     type = c.type;
@@ -96,18 +106,25 @@ column_reference::column_reference(prod *p, sqltype *type_constraint) : value_ex
 shared_ptr<bool_expr> bool_expr::factory(prod *p)
 {
   try {
-       if (p->level > d100())
+       if ((p->level > d100()) &&
+           (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("truth_value")))
 	    return make_shared<truth_value>(p);
-       if(d6() < 4)
+       if((d6() < 4) &&
+          (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("comparison_op")))
 	    return make_shared<comparison_op>(p);
-       else if (d6() < 4)
+       else if ((d6() < 4)  &&
+                (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("bool_term")))
 	    return make_shared<bool_term>(p);
-       else if (d6() < 4)
+       else if ((d6() < 4)  &&
+                (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("null_predicate")))
 	    return make_shared<null_predicate>(p);
-       else if (d6() < 4)
+       else if ((d6() < 4)  &&
+                (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("truth_value")))
 	    return make_shared<truth_value>(p);
-       else
+       else if(valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("exists_predicate"))
 	    return make_shared<exists_predicate>(p);
+       else
+        return make_shared<truth_value>(p);
 //     return make_shared<distinct_pred>(q);
   } catch (runtime_error &e) {
   }
