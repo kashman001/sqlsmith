@@ -87,6 +87,10 @@ struct scope {
   struct schema *schema;
   /// Counters for prefixed stmt-unique identifiers
   shared_ptr<map<string,unsigned int> > stmt_seq;
+  /// number of joined relations
+  /// useful in limiting number of joined tables
+  int num_joined_rels;
+
   scope(struct scope *parent = 0) : parent(parent) {
     if (parent) {
       schema = parent->schema;
@@ -94,6 +98,7 @@ struct scope {
       refs = parent->refs;
       stmt_seq = parent->stmt_seq;
     }
+    num_joined_rels = 0;
   }
   vector<pair<named_relation*, column> > refs_of_type(sqltype *t) {
     vector<pair<named_relation*, column> > result;

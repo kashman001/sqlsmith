@@ -1,0 +1,7 @@
+--merge_stmt
+--insert_stmt
+--delete_returning
+--upsert_stmt
+--update_returning
+--select_for_update
+--common_table_expression

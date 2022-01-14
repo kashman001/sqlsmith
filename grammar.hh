@@ -19,6 +19,7 @@ struct table_ref : prod {
   vector<shared_ptr<named_relation> > refs;
   static shared_ptr<table_ref> factory(prod *p);
   table_ref(prod *p) : prod(p) { }
+  bool is_join_child();
   virtual ~table_ref() { }
 };
 

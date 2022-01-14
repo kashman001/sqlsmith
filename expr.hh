@@ -13,9 +13,12 @@ using std::string;
 
 struct value_expr: prod {
   sqltype *type;
+  int value_expr_tree_depth;
+  virtual bool is_value_expr() final { return true; }
   virtual void out(std::ostream &out) = 0;
   virtual ~value_expr() { }
-  value_expr(prod *p) : prod(p) { }
+  value_expr(prod *p);
+  int tree_depth(){ return value_expr_tree_depth; }
   static shared_ptr<value_expr> factory(prod *p, sqltype *type_constraint = 0);
 };
 

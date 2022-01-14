@@ -13,6 +13,11 @@
 using namespace std;
 extern std::set<std::string>* stmtTypesToInclude;
 extern std::set<std::string>* tableRefTypesToInclude;
+extern int max_joined_tables;
+
+bool table_ref::is_join_child() {
+    return (dynamic_cast<joined_table *> (pprod)!= NULL);
+}
 
 shared_ptr<table_ref> table_ref::factory(prod *p) {
   try {
@@ -21,7 +26,8 @@ shared_ptr<table_ref> table_ref::factory(prod *p) {
           (tableRefTypesToInclude->empty() || tableRefTypesToInclude->count("table_subquery")))
 	return make_shared<table_subquery>(p);
       if ((d6() > 3)  &&
-          (tableRefTypesToInclude->empty() || tableRefTypesToInclude->count("joined_table")))
+          (tableRefTypesToInclude->empty() || tableRefTypesToInclude->count("joined_table")) &&
+          (p->scope->num_joined_rels + 2 <= max_joined_tables))
 	return make_shared<joined_table>(p);
     }
     if ((d6() > 3) &&
@@ -44,6 +50,8 @@ table_or_query_name::table_or_query_name(prod *p) : table_ref(p) {
   auto aliased_rel = make_shared<aliased_relation>(alias, relation);
   refs.push_back(aliased_rel);
   scope->refsCreatedInThisScope.push_back(&*aliased_rel);
+  if(is_join_child())
+     scope->num_joined_rels++;
 }
 
 void table_or_query_name::out(std::ostream &out) {
@@ -88,6 +96,8 @@ table_sample::table_sample(prod *p) : table_ref(p) {
   scope->refsCreatedInThisScope.push_back(&*aliased_rel);
   percent = 0.1 * d100();
   method = (d6() > 2) ? "system" : "bernoulli";
+  if(is_join_child())
+     scope->num_joined_rels++;
 }
 
 void table_sample::out(std::ostream &out) {
@@ -105,6 +115,8 @@ table_subquery::table_subquery(prod *p, bool lateral)
   auto aliased_rel = make_shared<aliased_relation>(alias, relation);
   refs.push_back(aliased_rel);
   scope->refsCreatedInThisScope.push_back(&*aliased_rel);
+  if(is_join_child())
+     scope->num_joined_rels++;
 }
 
 table_subquery::~table_subquery() { }

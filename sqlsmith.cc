@@ -88,6 +88,10 @@ std::set<std::string> * valueExprTypesToInclude;
 
 bool avoid_correlated_references = false;
 
+int max_joined_tables = 100;
+
+int max_value_expr_depth = 50;
+
 extern "C" void cerr_log_handler(int)
 {
   if (global_cerr_logger)
@@ -101,7 +105,7 @@ int main(int argc, char *argv[])
 
   pg_mtd_info_stream = new NullStream();
   map<string,string> options;
-  regex optregex("--(help|log-to|verbose|target|sqlite|monetdb|version|dump-all-graphs|dump-all-queries|seed|dry-run|max-queries|rng-state|exclude-catalog|pg-mtd-info|avoid-correlated-references|types-to-include|tables-to-include|routines-to-include|aggregates-to-include|operators-to-include|stmt-types-to-include|table-ref-types-to-include|value-expr-types-to-include)(?:=((?:.|\n)*))?");
+  regex optregex("--(help|log-to|verbose|target|sqlite|monetdb|version|dump-all-graphs|dump-all-queries|seed|dry-run|max-queries|max-joined-tables|max-value-expr-depth|rng-state|exclude-catalog|pg-mtd-info|avoid-correlated-references|types-to-include|tables-to-include|routines-to-include|aggregates-to-include|operators-to-include|stmt-types-to-include|table-ref-types-to-include|value-expr-types-to-include)(?:=((?:.|\n)*))?");
   
   for(char **opt = argv+1 ;opt < argv+argc; opt++) {
     smatch match;
@@ -148,7 +152,13 @@ int main(int argc, char *argv[])
   if(options.count("avoid-correlated-references"))
       avoid_correlated_references = true;
 
-  try
+  if (options.count("max-joined-tables"))
+      max_joined_tables = stoi(options["max-joined-tables"]);
+
+  if (options.count("max-value-expr-depth"))
+      max_value_expr_depth = stoi(options["max-value-expr-depth"]);
+
+    try
     {
       stmtTypesToInclude = new std::set<std::string>();
       if (options.count("stmt-types-to-include")) {

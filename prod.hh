@@ -29,6 +29,8 @@ struct prod {
   /// the Parent prod.
   long retry_limit = 100;
   prod(prod *parent);
+  /// is this a value_expr
+  virtual bool is_value_expr() { return false; }
   /// Newline and indent according to tree level.
   virtual void indent(std::ostream &out);
   /// Emit SQL for this production.

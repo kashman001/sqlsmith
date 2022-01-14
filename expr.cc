@@ -15,30 +15,51 @@ using namespace std;
 using impedance::matched;
 extern std::set<std::string>* valueExprTypesToInclude;
 extern bool avoid_correlated_references;
+extern int max_value_expr_depth;
+
+value_expr::value_expr(prod *p) : prod(p)
+{
+    value_expr_tree_depth = 1;
+    if(p->is_value_expr()){
+        value_expr_tree_depth = ((value_expr*)p)->value_expr_tree_depth+1;
+    }
+}
 
 shared_ptr<value_expr> value_expr::factory(prod *p, sqltype *type_constraint)
 {
   try {
+    int parent_value_expr_depth = 0;
+    if(p->is_value_expr())
+    {
+        parent_value_expr_depth = ((value_expr *)p)->value_expr_tree_depth;
+    }
     if ((1 == d20() && p->level < d6() && window_function::allowed(p)) &&
-        (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("window_function")))
+        (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("window_function")) &&
+        (max_value_expr_depth >= parent_value_expr_depth+2))
       return make_shared<window_function>(p, type_constraint);
     else if ((1 == d42() && p->level < d6()) &&
-             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("coalesce")))
+             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("coalesce")) &&
+             (max_value_expr_depth >= parent_value_expr_depth+2))
       return make_shared<coalesce>(p, type_constraint);
     else if ((1 == d42() && p->level < d6()) &&
-             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("nullif")))
+             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("nullif")) &&
+             (max_value_expr_depth >= parent_value_expr_depth+2))
       return make_shared<nullif>(p, type_constraint);
     else if ((p->level < d6() && d6() == 1) &&
-             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("funcall")))
+             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("funcall")) &&
+             (max_value_expr_depth >= parent_value_expr_depth+2))
       return make_shared<funcall>(p, type_constraint);
     else if ((d12()==1) &&
-             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("atomic_subselect")))
+             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("atomic_subselect")) &&
+             (max_value_expr_depth >= parent_value_expr_depth+1))
       return make_shared<atomic_subselect>(p, type_constraint);
     else if ((p->level< d6() && d9()==1) &&
-             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("case_expr")))
+             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("case_expr")) &&
+             (max_value_expr_depth >= parent_value_expr_depth+2))
       return make_shared<case_expr>(p, type_constraint);
     else if ((p->scope->refs.size() && d20() > 1) &&
-             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("column_reference")))
+             (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("column_reference")) &&
+             (max_value_expr_depth >= parent_value_expr_depth+1))
       return make_shared<column_reference>(p, type_constraint);
     else
       return make_shared<const_expr>(p, type_constraint);
@@ -106,22 +127,33 @@ column_reference::column_reference(prod *p, sqltype *type_constraint) : value_ex
 shared_ptr<bool_expr> bool_expr::factory(prod *p)
 {
   try {
+      int parent_value_expr_depth = 0;
+      if(p->is_value_expr())
+      {
+          parent_value_expr_depth = ((value_expr *)p)->value_expr_tree_depth;
+      }
        if ((p->level > d100()) &&
-           (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("truth_value")))
+           (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("truth_value")) &&
+           (max_value_expr_depth >= parent_value_expr_depth+1))
 	    return make_shared<truth_value>(p);
        if((d6() < 4) &&
-          (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("comparison_op")))
+          (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("comparison_op")) &&
+          (max_value_expr_depth >= parent_value_expr_depth+2))
 	    return make_shared<comparison_op>(p);
        else if ((d6() < 4)  &&
-                (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("bool_term")))
+                (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("bool_term")) &&
+                (max_value_expr_depth >= parent_value_expr_depth+2))
 	    return make_shared<bool_term>(p);
        else if ((d6() < 4)  &&
-                (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("null_predicate")))
+                (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("null_predicate")) &&
+                (max_value_expr_depth >= parent_value_expr_depth+2))
 	    return make_shared<null_predicate>(p);
        else if ((d6() < 4)  &&
-                (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("truth_value")))
+                (valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("truth_value")) &&
+                (max_value_expr_depth >= parent_value_expr_depth+1))
 	    return make_shared<truth_value>(p);
-       else if(valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("exists_predicate"))
+       else if((valueExprTypesToInclude->empty() || valueExprTypesToInclude->count("exists_predicate")) &&
+               (max_value_expr_depth >= parent_value_expr_depth+1))
 	    return make_shared<exists_predicate>(p);
        else
         return make_shared<truth_value>(p);

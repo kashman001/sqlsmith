@@ -70,24 +70,40 @@ Example invocations:
 
 The following options are currently supported:
 
-| =--target=connstr=        | target postgres database (default: libpq defaults)           |
-| =--sqlite=URI=            | target SQLite3 database                                      |
-| =--monetdb=URI=           | target MonetDB database                                      |
-| =--log-to=connstr=        | postgres db for logging errors into (default: don't log)     |
-| =--verbose=               | emit progress output                                         |
-| =--version=               | show version information                                     |
-| =--seed=int=              | seed RNG with specified integer instead of PID               |
-| =--dry-run=               | print queries instead of executing them                      |
-| =--max-queries=long=      | terminate after generating this many queries                 |
-| =--exclude-catalog=       | don't generate queries using catalog relations               |
-| =--pg-mtd-info           | print Postgres Metadata Info to cerr                         |
-| =--types-to-include=      | specify configuration file that white-lists types            |
-| =--tables-to-include=     | specify names of tables that should be in the generated SQL  |
-| =--routines-to-include=   | specify names of routines that should be in the generated SQL|
-| =--aggregates-to_include= | specify the aggregates that should be in the generated SQL   |
-| =--dump-all-queries=      | dump queries as they are generated                           |
-| =--dump-all-graphs=       | dump generated ASTs for debugging                            |
-| =--rng-state=string=      | deserialize dumped rng state                                 |
+| =--target=connstr=             | target postgres database (default: libpq defaults)             |
+| =--sqlite=URI=                 | target SQLite3 database                                        |
+| =--monetdb=URI=                | target MonetDB database                                        |
+| =--log-to=connstr=             | postgres db for logging errors into (default: don't log)       |
+| =--verbose=                    | emit progress output                                           |
+| =--version=                    | show version information                                       |
+| =--seed=int=                   | seed RNG with specified integer instead of PID                 |
+| =--dry-run=                    | print queries instead of executing them                        |
+| =--max-queries=long=           | terminate after generating this many queries                   |
+| =--exclude-catalog=            | don't generate queries using catalog relations                 |
+| =--pg-mtd-info                 | print Postgres Metadata Info to cerr                           |
+| =--types-to-include=           | specify configuration file that white-lists types              |
+| =--tables-to-include=          | specify names of tables that should be in the generated SQL    |
+| =--routines-to-include=        | specify names of routines that should be in the generated SQL  |
+| =--aggregates-to_include=      | specify the aggregates that should be in the generated SQL     |
+| =--dump-all-queries=           | dump queries as they are generated                             |
+| =--dump-all-graphs=            | dump generated ASTs for debugging                              |
+| =--rng-state=string=           | deserialize dumped rng state                                   |
+
+following are options for controlling sql generation. This allows controlling the process of
+sql generation.
+
+| =--types-to-include=           | file that white lists data types                               |
+| =--tables-to-include=          | file that white list tables by name                            |
+| =--routines-to-include=        | file that white list routines/functions by name                |
+| =--routines-to-include=        | file that white list routines/functions by name                |
+| =--aggregates-to-include=      | file that white list aggregates to include by name             |
+| =--operators-to-include=       | file that white list operators to include                      |
+| =--max-joined-tables=          | maximum number of joined tables in the from clause default 100 |
+| =--max-value-expr-depth=       | maximum depth of the value expr tree default 50                |
+| =--avoid-correlated-references | avoid generating correlated references                         |
+| =--stmt-types-to-include=      | file that white list statement types                           |
+| =--table-ref-types-to-include= | file that white list table ref types                           |
+| =--value-expr-types-to-include=| file that white list value expr types                          |
 
 Sample output:
 

@@ -1,0 +1,5 @@
+--table_subquery
+--lateral_subquery
+joined_table
+table_or_query_name
+--table_sample
